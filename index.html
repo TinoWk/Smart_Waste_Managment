@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Waste Management</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f4f4f4;
+    }
+    header {
+      background-color: #28a745;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+    main {
+      padding: 2rem;
+    }
+    .dashboard, .history, .add-bin-form {
+      margin-bottom: 2rem;
+    }
+    .dashboard {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .bin-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      flex: 1 1 200px;
+      position: relative;
+    }
+    .bin-status {
+      font-weight: bold;
+    }
+    .status-full {
+      color: red;
+    }
+    .status-ok {
+      color: green;
+    }
+    form input, form button {
+      padding: 0.5rem;
+      margin: 0.3rem;
+      border-radius: 5px;
+    }
+    form button {
+      background-color: #28a745;
+      color: white;
+      border: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 0.8rem;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    .suggestion {
+      background-color: #fff3cd;
+      padding: 1rem;
+      border-radius: 10px;
+      border-left: 5px solid #ffc107;
+      margin-top: 1rem;
+    }
+    .about, footer {
+      margin-top: 3rem;
+      padding: 2rem;
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      border-radius: 10px;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Smart Waste Management Dashboard</h1>
+  </header>
+  <main>
+    <section class="add-bin-form">
+      <h2>Ajouter ou retirer une poubelle</h2>
+      <form id="addBinForm">
+        <input type="text" id="binId" placeholder="ID de la poubelle" required />
+        <input type="text" id="binLocation" placeholder="Emplacement" required />
+        <button type="submit">Ajouter</button>
+        <button type="button" id="removeBtn">Retirer</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Liste des poubelles</h2>
+      <div class="dashboard" id="dashboard"></div>
+    </section>
+
+    <section class="history">
+      <h2>Historique des poubelles recyclées</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Emplacement</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="historyTable">
+          <tr><td>BIN001</td><td>Bloc A</td><td>2025-04-20</td></tr>
+          <tr><td>BIN003</td><td>Parking</td><td>2025-04-19</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Courbe de remplissage au cours du temps</h2>
+      <canvas id="fillChart" width="400" height="200"></canvas>
+      <div id="suggestionZone"></div>
+    </section>
+
+    <section class="about">
+      <h2>À propos du système</h2>
+      <p>
+        Ce système de gestion intelligente des déchets utilise des capteurs pour surveiller en temps réel le niveau de remplissage des poubelles.
+        Il envoie des notifications lorsque les bacs sont pleins et fournit des suggestions pour optimiser la collecte.
+      </p>
+      <p>
+        Pour toute question ou collaboration, veuillez contacter l'équipe technique à : <a href="mailto:smartwaste@system.tg">smartwaste@system.tg</a>.
+      </p>
+    </section>
+  </main>
+  <footer>
+    &copy; 2025 Smart Waste Management — Tous droits réservés
+  </footer>
+
+  <script>
+    let bins = [
+      { id: 'BIN001', location: 'Bloc A', status: 'full', updated: '2025-04-21 10:15' },
+      { id: 'BIN002', location: 'Bloc B', status: 'ok', updated: '2025-04-21 10:17' },
+      { id: 'BIN003', location: 'Parking', status: 'full', updated: '2025-04-21 09:55' },
+    ];
+
+    const dashboard = document.getElementById('dashboard');
+    const addBinForm = document.getElementById('addBinForm');
+    const removeBtn = document.getElementById('removeBtn');
+    const suggestionZone = document.getElementById('suggestionZone');
+
+    function renderBins() {
+      dashboard.innerHTML = '';
+      bins.forEach(bin => {
+        const card = document.createElement('div');
+        card.className = 'bin-card';
+        card.innerHTML = `
+          <h3>${bin.id}</h3>
+          <p><strong>Emplacement :</strong> ${bin.location}</p>
+          <p class="bin-status ${bin.status === 'full' ? 'status-full' : 'status-ok'}">
+            ${bin.status === 'full' ? 'Pleine' : 'OK'}
+          </p>
+          <p><small>Mis à jour le : ${bin.updated}</small></p>
+        `;
+        dashboard.appendChild(card);
+      });
+    }
+
+    function removeBin(id) {
+      bins = bins.filter(b => b.id !== id);
+      renderBins();
+    }
+
+    addBinForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const id = document.getElementById('binId').value;
+      const location = document.getElementById('binLocation').value;
+      bins.push({ id, location, status: 'ok', updated: new Date().toISOString().slice(0, 16).replace('T', ' ') });
+      renderBins();
+      addBinForm.reset();
+    });
+
+    removeBtn.addEventListener('click', () => {
+      const id = document.getElementById('binId').value;
+      bins = bins.filter(b => b.id !== id);
+      renderBins();
+      addBinForm.reset();
+    });
+
+    renderBins();
+
+    // Chart data
+    const ctx = document.getElementById('fillChart').getContext('2d');
+    const taux = [30, 45, 70, 85, 90, 95];
+    const fillChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['16 avr', '17 avr', '18 avr', '19 avr', '20 avr', '21 avr'],
+        datasets: [{
+          label: 'Taux de remplissage (%)',
+          data: taux,
+          backgroundColor: 'rgba(40, 167, 69, 0.2)',
+          borderColor: '#28a745',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, max: 100 }
+        },
+        plugins: {
+          afterDraw: () => checkOverflowSuggestion()
+        }
+      }
+    });
+
+    function checkOverflowSuggestion() {
+      const avg = taux.reduce((a,b)=>a+b,0)/taux.length;
+      if (avg > 80) {
+        suggestionZone.innerHTML = `
+          <div class="suggestion">
+            🔔 <strong>Suggestion :</strong> Le taux moyen de remplissage est élevé. 
+            Il est conseillé d’installer une deuxième poubelle à cet emplacement.
+          </div>
+        `;
+      } else {
+        suggestionZone.innerHTML = '';
+      }
+    }
+
+    checkOverflowSuggestion();
+  </script>
+</body>
+</html>
